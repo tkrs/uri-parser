@@ -1,14 +1,7 @@
 package uriparser
 
-import java.net.URLDecoder
-import java.nio.charset.StandardCharsets.UTF_8
-import java.util.StringTokenizer
-
 import fastparse._
 import fastparse.NoWhitespace._
-import fastparse.Parsed.{Failure, Success}
-
-import scala.collection.mutable
 
 /**
   * [[https://tools.ietf.org/html/rfc3986 rfc3986]]
@@ -79,7 +72,7 @@ object UriParser {
   def port[_: P]: P[Int]            = P(digit.rep.!.map(_.toInt))
   def userInfo[_: P]: P[String]     = P((unreserved | pctEncoded | subDelims | ":").rep(1).!)
   def authority[_: P]: P[Authority] = P((userInfo ~ "@").? ~ host ~ (":" ~ port).?).map((Authority.apply _).tupled)
-  def query[_: P]: P[Query]         = P((pchar | "/" | "?").rep.!.map(decodeQuery))
+  def query[_: P]: P[String]        = P((pchar | "/" | "?").rep.!)
   def scheme[_: P]: P[String]       = P((alpha ~ (alpha | digit | "+" | "-" | ".").rep(1).?).!)
   def fragment[_: P]: P[String]     = P((pchar | "/" | "?").rep.!)
 
@@ -105,47 +98,4 @@ object UriParser {
   def segment[_: P]: P[Unit]     = P(pchar.rep)
   def segmentNZ[_: P]: P[Unit]   = P(pchar.rep(1))
   def segmentNZNC[_: P]: P[Unit] = P((unreserved | pctEncoded | subDelims | "@").rep(1))
-
-  private def decodeQuery(s: String): Query = {
-    val tokenizer = new StringTokenizer(s, "&")
-
-    val m = mutable.Map.empty[String, Seq[String]]
-
-    def go(): Unit =
-      if (!tokenizer.hasMoreTokens)
-        ()
-      else {
-        val kv     = tokenizer.nextToken()
-        val (k, v) = kv.span(_ != '=')
-        val kk     = if (k.isEmpty) "" else URLDecoder.decode(k, UTF_8)
-        val vv     = if (v.isEmpty) "" else URLDecoder.decode(v.tail, UTF_8)
-
-        val vvv = m.getOrElse(kk, Nil)
-        m.update(kk,  vvv :+ vv)
-        go()
-      }
-
-    go()
-
-    Query(s, m.toMap)
-  }
-
 }
-
-final case class Uri(scheme: String = "",
-                     authority: Option[Authority] = None,
-                     path: String = "",
-                     query: Option[Query] = None,
-                     fragment: Option[String] = None)
-
-object Uri {
-  val empty = Uri()
-
-  def parse(s: String): Either[String, Uri] = fastparse.parse(s, UriParser.grammar(_)) match {
-    case Success(value, _)    => Right(value)
-    case t @ Failure(_, _, _) => Left("Failed to parse the URI: \"" + s + "\", cause: " + t.msg)
-  }
-}
-
-final case class Authority(userInfo: Option[String], host: String, port: Option[Int])
-final case class Query(raw: String, decoded: Map[String, Seq[String]])
