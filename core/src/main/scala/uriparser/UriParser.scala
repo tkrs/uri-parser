@@ -10,6 +10,9 @@ import fastparse.Parsed.{Failure, Success}
 
 import scala.collection.mutable
 
+/**
+  * [[https://tools.ietf.org/html/rfc3986 rfc3986]]
+  */
 object UriParser {
 
   def grammar[_: P]: P[Uri] = P(uriReference ~ End)
