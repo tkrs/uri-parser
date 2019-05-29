@@ -109,18 +109,25 @@ object UriParser {
   private def decodeQuery(s: String): Query = {
     val tokenizer = new StringTokenizer(s, "&")
 
-    def go(acc: mutable.Builder[(String, String), Map[String, String]]): Map[String, String] =
+    val m = mutable.Map.empty[String, Seq[String]]
+
+    def go(): Unit =
       if (!tokenizer.hasMoreTokens)
-        acc.result()
+        ()
       else {
         val kv     = tokenizer.nextToken()
         val (k, v) = kv.span(_ != '=')
         val kk     = if (k.isEmpty) "" else URLDecoder.decode(k, UTF_8)
         val vv     = if (v.isEmpty) "" else URLDecoder.decode(v.tail, UTF_8)
-        go(acc += kk -> vv)
+
+        val vvv = m.getOrElse(kk, Nil)
+        m.update(kk,  vvv :+ vv)
+        go()
       }
 
-    Query(s, go(Map.newBuilder))
+    go()
+
+    Query(s, m.toMap)
   }
 
 }
@@ -141,4 +148,4 @@ object Uri {
 }
 
 final case class Authority(userInfo: Option[String], host: String, port: Option[Int])
-final case class Query(raw: String, decoded: Map[String, String])
+final case class Query(raw: String, decoded: Map[String, Seq[String]])
