@@ -133,7 +133,7 @@ object Uri {
 
   def parse(s: String): Either[String, Uri] = fastparse.parse(s, UriParser.grammar(_)) match {
     case Success(value, _)    => Right(value)
-    case t @ Failure(_, _, _) => Left(t.msg)
+    case t @ Failure(_, _, _) => Left("Failed to parse the URI: \"" + s + "\", cause: " + t.msg)
   }
 }
 
